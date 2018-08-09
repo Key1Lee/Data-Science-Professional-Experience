@@ -1,0 +1,46 @@
+DROP TABLE CDW_SAPP_F_CREDIT_CARD;
+
+CREATE EXTERNAL TABLE IF NOT EXISTS CDW_SAPP_CREDITCARD(
+    CREDIT_CARD_NO STRING COMMENT 'Credit card number of customer',
+	TIMEID VARCHAR(8) COMMENT 'Surrogate key of the period (time) table',
+	CUST_SSN INT COMMENT 'Surrogate key of the customer table. Used to uniquely identify a row.',
+	BRANCH_CODE INT COMMENT 'Surrogate key of the branch table',
+	TRANSACTION_TYPE VARCHAR(30) COMMENT 'Apartment no and Street name of customer\'s Residence',
+	TRANSACTION_VALUE DECIMAL(20,3) COMMENT 'Customer’s Current City'
+)
+COMMENT 'Credit Card Staging Table'
+ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' 
+LINES TERMINATED BY '\n'
+STORED AS TEXTFILE
+LOCATION '/user/maria_dev/Credit_Card_System/CDW_SAPP_CREDITCARD';
+
+LOAD DATA INPATH '/user/maria_dev/Credit_Card_System/CDW_SAPP_CREDITCARD/' INTO TABLE CDW_SAPP_CREDITCARD;
+
+CREATE EXTERNAL TABLE IF NOT EXISTS CDW_SAPP_F_CREDIT_CARD(
+    CUST_CC_NO STRING COMMENT 'Credit card number of customer',
+	TIMEID VARCHAR(8) COMMENT 'Surrogate key of the period (time) table',
+	CUST_SSN INT COMMENT 'Surrogate key of the customer table. Used to uniquely identify a row.',
+	BRANCH_CODE INT COMMENT 'Surrogate key of the branch table',
+	TRANSACTION_VALUE DECIMAL(20,3) COMMENT 'Customer’s Current City'
+)
+COMMENT 'Partitioned Credit Card Table'
+PARTITIONED BY(TRANSACTION_TYPE VARCHAR(30))
+ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' 
+LINES TERMINATED BY '\n'
+STORED AS TEXTFILE
+LOCATION '/user/maria_dev/Credit_Card_System/CDW_SAPP_F_CREDIT_CARD';
+
+SET hive.exec.dynamic.partition=true;
+SET hive.exec.dynamic.partition.mode=nonstrict;
+
+INSERT OVERWRITE TABLE CDW_SAPP_F_CREDIT_CARD
+PARTITION (TRANSACTION_TYPE)
+SELECT CREDIT_CARD_NO,
+       TIMEID,
+	   CUST_SSN,
+	   BRANCH_CODE,
+	   TRANSACTION_VALUE,
+	   TRANSACTION_TYPE 
+FROM CDW_SAPP_CREDITCARD;
+
+DROP TABLE CDW_SAPP_CREDITCARD;

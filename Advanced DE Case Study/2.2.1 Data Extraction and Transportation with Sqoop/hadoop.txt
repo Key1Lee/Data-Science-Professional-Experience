@@ -1,0 +1,108 @@
+# Run sqoop metastore
+
+sqoop-metastore
+
+# Create sqoop jobs
+
+sqoop job \
+--create fullBranchImport \
+--meta-connect jdbc:hsqldb:hsql://localhost:16000/sqoop \
+-- import \
+--connect jdbc:mysql://localhost/CDW_SAPP \
+--driver com.mysql.jdbc.Driver \
+--connection-manager org.apache.sqoop.manager.GenericJdbcManager \
+--query "SELECT BRANCH_CODE,
+                BRANCH_NAME,
+                BRANCH_STREET,
+                BRANCH_CITY,
+                BRANCH_STATE,
+                IFNULL(BRANCH_ZIP, 999999),
+                CONCAT('(', SUBSTRING(BRANCH_PHONE, 1, 3), ')', SUBSTRING(BRANCH_PHONE, 4, 3), '-', SUBSTRING(BRANCH_PHONE, 7, 4)),
+                LAST_UPDATED
+         FROM CDW_SAPP_BRANCH
+         WHERE \$CONDITIONS" \
+--target-dir /user/maria_dev/Credit_Card_System/CDW_SAPP_BRANCH \
+-m 1
+
+sqoop job \
+--create fullCreditCardImport \
+--meta-connect jdbc:hsqldb:hsql://localhost:16000/sqoop \
+-- import \
+--connect jdbc:mysql://localhost/CDW_SAPP \
+--driver com.mysql.jdbc.Driver \
+--connection-manager org.apache.sqoop.manager.GenericJdbcManager \
+--query "SELECT CREDIT_CARD_NO,
+                CONCAT(YEAR, LPAD(MONTH, 2, '0'), LPAD(DAY, 2, '0')),
+                CUST_SSN,
+                BRANCH_CODE, 
+                TRANSACTION_TYPE,
+                TRANSACTION_VALUE
+         FROM CDW_SAPP_CREDITCARD
+         WHERE \$CONDITIONS" \
+--target-dir /user/maria_dev/Credit_Card_System/CDW_SAPP_CREDITCARD \
+-m 1
+
+sqoop job \
+--create fullTimeImport \
+--meta-connect jdbc:hsqldb:hsql://localhost:16000/sqoop \
+-- import \
+--connect jdbc:mysql://localhost/CDW_SAPP \
+--driver com.mysql.jdbc.Driver \
+--connection-manager org.apache.sqoop.manager.GenericJdbcManager \
+--query "SELECT CC.TIMEID,
+                SUBSTRING(CC.TIMEID, 7, 2) AS DAY,
+                SUBSTRING(CC.TIMEID, 5, 2) AS MONTH,
+                (CASE WHEN SUBSTRING(CC.TIMEID, 5, 2) BETWEEN 1 AND 3 THEN 'Q1' 
+                      WHEN SUBSTRING(CC.TIMEID, 5, 2) BETWEEN 4 AND 6 THEN 'Q2' 
+                      WHEN SUBSTRING(CC.TIMEID, 5, 2) BETWEEN 7 AND 9 THEN 'Q3'
+                      WHEN SUBSTRING(CC.TIMEID, 5, 2) BETWEEN 10 AND 12 THEN 'Q4'
+                 END) QUARTER,
+                 SUBSTRING(CC.TIMEID, 1, 4) AS YEAR
+         FROM (SELECT CONCAT(YEAR, LPAD(MONTH, 2, 0), LPAD(DAY, 2, 0)) AS TIMEID FROM CDW_SAPP_CREDITCARD) CC
+         WHERE \$CONDITIONS" \
+--target-dir /user/maria_dev/Credit_Card_System/CDW_SAPP_TIME \
+-m 1
+
+sqoop job \
+--create fullCustomerImport \
+--meta-connect jdbc:hsqldb:hsql://localhost:16000/sqoop \
+-- import \
+--connect jdbc:mysql://localhost/CDW_SAPP \
+--driver com.mysql.jdbc.Driver \
+--connection-manager org.apache.sqoop.manager.GenericJdbcManager \
+--query "SELECT CAST(SSN AS UNSIGNED),
+                CONCAT(UPPER(SUBSTRING(FIRST_NAME, 1, 1)), LOWER(SUBSTRING(FIRST_NAME, 2, LENGTH(FIRST_NAME)-1))),
+                LOWER(MIDDLE_NAME),
+                CONCAT(UPPER(SUBSTRING(LAST_NAME, 1, 1)), LOWER(SUBSTRING(LAST_NAME, 2, LENGTH(LAST_NAME)-1))),
+                CREDIT_CARD_NO,
+                CONCAT(STREET_NAME, ', ', APT_NO),
+                CUST_CITY,
+                CUST_STATE,
+                CUST_COUNTRY,
+                CAST(CUST_ZIP AS UNSIGNED),
+                CONCAT(SUBSTRING(CUST_PHONE, 1, 3), '-', SUBSTRING(CUST_PHONE, 4, 4)),
+                CUST_EMAIL,
+                LAST_UPDATED
+         FROM CDW_SAPP_CUSTOMER
+         WHERE \$CONDITIONS" \
+--target-dir /user/maria_dev/Credit_Card_System/CDW_SAPP_CUSTOMER \
+--fields-terminated-by '|' \
+-m 1
+
+# Extract data from RDBMS, rename and clean output files
+
+sqoop job --exec fullBranchImport --meta-connect jdbc:hsqldb:hsql://localhost:16000/sqoop
+hdfs dfs -mv /user/maria_dev/Credit_Card_System/CDW_SAPP_BRANCH/part* /user/maria_dev/Credit_Card_System/CDW_SAPP_BRANCH/CDW_SAPP_BRANCH.txt
+hdfs dfs -rm -skipTrash /user/maria_dev/Credit_Card_System/CDW_SAPP_BRANCH/_SUCCESS
+
+sqoop job --exec fullCreditCardImport --meta-connect jdbc:hsqldb:hsql://localhost:16000/sqoop
+hdfs dfs -mv /user/maria_dev/Credit_Card_System/CDW_SAPP_CREDITCARD/part* /user/maria_dev/Credit_Card_System/CDW_SAPP_CREDITCARD/CDW_SAPP_CREDITCARD.txt
+hdfs dfs -rm -skipTrash /user/maria_dev/Credit_Card_System/CDW_SAPP_CREDITCARD/_SUCCESS
+
+sqoop job --exec fullTimeImport --meta-connect jdbc:hsqldb:hsql://localhost:16000/sqoop
+hdfs dfs -mv /user/maria_dev/Credit_Card_System/CDW_SAPP_TIME/part* /user/maria_dev/Credit_Card_System/CDW_SAPP_TIME/CDW_SAPP_TIME.txt
+hdfs dfs -rm -skipTrash /user/maria_dev/Credit_Card_System/CDW_SAPP_TIME/_SUCCESS
+
+sqoop job --exec fullCustomerImport --meta-connect jdbc:hsqldb:hsql://localhost:16000/sqoop
+hdfs dfs -mv /user/maria_dev/Credit_Card_System/CDW_SAPP_CUSTOMER/part* /user/maria_dev/Credit_Card_System/CDW_SAPP_CUSTOMER/CDW_SAPP_CUSTOMER.txt
+hdfs dfs -rm -skipTrash /user/maria_dev/Credit_Card_System/CDW_SAPP_CUSTOMER/_SUCCESS

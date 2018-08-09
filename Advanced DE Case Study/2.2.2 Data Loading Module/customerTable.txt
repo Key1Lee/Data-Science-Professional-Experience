@@ -1,0 +1,66 @@
+DROP TABLE CDW_SAPP_D_CUSTOMER;
+
+CREATE EXTERNAL TABLE IF NOT EXISTS CDW_SAPP_CUSTOMER(
+	SSN INT COMMENT "Social Security Number of the customer (National ID)",
+	FIRST_NAME VARCHAR(40) COMMENT "First Name of the Customer",
+	MIDDLE_NAME VARCHAR(40) COMMENT "Middle Name of the customer",
+	LAST_NAME VARCHAR(40) COMMENT "Last Name of the customer",
+	CREDIT_CARDNO STRING COMMENT "Credit card number of customer",
+	CUST_STREET VARCHAR(38) COMMENT "Apartment no and Street name of customer's Residence",
+	CUST_CITY VARCHAR(30) COMMENT "Customer's Current City",
+	CUST_STATE VARCHAR(30) COMMENT "Customer’s State code",
+	CUST_COUNTRY VARCHAR(30) COMMENT "Customer’s country code",
+	CUST_ZIP INT COMMENT "Zip code of Customer's Country",
+	CUST_PHONE VARCHAR(8) COMMENT "Contact Number of the customer",
+	CUST_EMAIL VARCHAR(40) COMMENT "Email address of the customer",
+	LAST_UPDATED TIMESTAMP COMMENT "Record inserted date."
+)
+COMMENT 'Customer Staging Table'
+ROW FORMAT DELIMITED FIELDS TERMINATED BY '|' 
+LINES TERMINATED BY '\n'
+STORED AS TEXTFILE
+LOCATION '/user/maria_dev/Credit_Card_System/CDW_SAPP_CUSTOMER';
+
+LOAD DATA INPATH '/user/maria_dev/Credit_Card_System/CDW_SAPP_CUSTOMER/' INTO TABLE CDW_SAPP_CUSTOMER;
+
+CREATE EXTERNAL TABLE IF NOT EXISTS CDW_SAPP_D_CUSTOMER(
+	CUST_SSN INT COMMENT "Social Security Number of the customer (National ID)",
+	CUST_F_NAME VARCHAR(40) COMMENT "First Name of the Customer",
+	CUST_M_NAME VARCHAR(40) COMMENT "Middle Name of the customer",
+	CUST_L_NAME VARCHAR(40) COMMENT "Last Name of the customer",
+	CUST_CC_NO STRING COMMENT "Credit card number of customer",
+	CUST_STREET VARCHAR(38) COMMENT "Apartment no and Street name of customer's Residence",
+	CUST_CITY VARCHAR(30) COMMENT "Customer's Current City",
+	CUST_ZIP INT COMMENT "Zip code of Customer's Country",
+	CUST_PHONE VARCHAR(8) COMMENT "Contact Number of the customer",
+	CUST_EMAIL VARCHAR(40) COMMENT "Email address of the customer",
+	LAST_UPDATED TIMESTAMP COMMENT "Record inserted date."
+)
+COMMENT 'Partitioned Customer Table'
+PARTITIONED BY(CUST_COUNTRY VARCHAR(30), CUST_STATE VARCHAR(30))
+ROW FORMAT DELIMITED FIELDS TERMINATED BY '|' 
+LINES TERMINATED BY '\n'
+STORED AS TEXTFILE
+LOCATION '/user/maria_dev/Credit_Card_System/CDW_SAPP_D_CUSTOMER';
+
+SET hive.exec.dynamic.partition=true;
+SET hive.exec.dynamic.partition.mode=nonstrict;
+
+INSERT OVERWRITE TABLE CDW_SAPP_D_CUSTOMER
+PARTITION (CUST_COUNTRY, CUST_STATE)
+SELECT SSN,
+	   FIRST_NAME,
+	   MIDDLE_NAME,
+	   LAST_NAME,
+	   CREDIT_CARDNO,
+	   CUST_STREET,
+	   CUST_CITY,
+	   CUST_ZIP,
+	   CUST_PHONE,
+	   CUST_EMAIL,
+	   LAST_UPDATED,
+	   CUST_COUNTRY,
+	   CUST_STATE 
+FROM CDW_SAPP_CUSTOMER;
+
+DROP TABLE CDW_SAPP_CUSTOMER;

@@ -1,0 +1,43 @@
+DROP TABLE CDW_SAPP_D_TIME;
+
+CREATE EXTERNAL TABLE IF NOT EXISTS CDW_SAPP_TIME(
+	TIMEID VARCHAR(8) COMMENT 'The unique key defines a day',
+	DAY INT COMMENT 'Day of a month',
+	MONTH INT COMMENT 'A month of the current year',
+	QUARTER VARCHAR(8) COMMENT 'Specifies a business period',
+	YEAR INT COMMENT 'Specifies the Year part'
+)
+COMMENT 'Time Staging Table'
+ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' 
+LINES TERMINATED BY '\n'
+STORED AS TEXTFILE
+LOCATION '/user/maria_dev/Credit_Card_System/CDW_SAPP_TIME';
+
+LOAD DATA INPATH '/user/maria_dev/Credit_Card_System/CDW_SAPP_TIME/' INTO TABLE CDW_SAPP_TIME;
+
+CREATE EXTERNAL TABLE IF NOT EXISTS CDW_SAPP_D_TIME(
+	TIMEID VARCHAR(8) COMMENT 'The unique key defines a day',
+	DAY INT COMMENT 'Day of a month',
+	MONTH INT COMMENT 'A month of the current year',
+	QUARTER VARCHAR(8) COMMENT 'Specifies a business period'
+)
+COMMENT 'Partitioned Time Table'
+PARTITIONED BY(YEAR INT)
+ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' 
+LINES TERMINATED BY '\n'
+STORED AS TEXTFILE
+LOCATION '/user/maria_dev/Credit_Card_System/CDW_SAPP_D_TIME';
+
+SET hive.exec.dynamic.partition=true;
+SET hive.exec.dynamic.partition.mode=nonstrict;
+
+INSERT OVERWRITE TABLE CDW_SAPP_D_TIME
+PARTITION (YEAR)
+SELECT TIMEID,
+       DAY,
+	   MONTH,
+	   QUARTER,
+	   YEAR 
+FROM CDW_SAPP_TIME;
+
+DROP TABLE CDW_SAPP_TIME;
